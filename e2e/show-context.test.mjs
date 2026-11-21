@@ -22,6 +22,7 @@ Usage: show-context [session-id-or-prefix] [--no-open] [--static]
 Flags:
   --no-open       Do not open the report.
   --static        Write a static report without a live server.
+  --json          Print a JSON summary to stdout and exit (no page or server).
   -h, --help      Show this help.
   -v, --version   Show the version.
 
@@ -374,6 +375,24 @@ test('help, version, and unknown flags are complete CLI E2E paths', async () => 
   assert.equal(unknown.code, 1);
   assert.equal(unknown.stdout, 'show-context: unknown flag: --unknown. Use --help for help.\n');
   assert.equal(unknown.stderr, '');
+});
+
+test('--json prints a summary and writes no page or server', async () => {
+  const id = '55555555-1111-4111-8111-111111111111';
+  await writeFile(path.join(project, `${id}.jsonl`), selectionFixture(id));
+  const result = await run(root, [id, '--json']);
+  assert.equal(result.code, 0);
+  assert.equal(result.stderr, '');
+  const summary = JSON.parse(result.stdout);
+  assert.equal(summary.sessionId, id);
+  assert.equal(typeof summary.startLoadTokens, 'number');
+  assert.ok(Array.isArray(summary.startLoad));
+  assert.equal(typeof summary.readTokens, 'number');
+  assert.ok(Array.isArray(summary.reads));
+  assert.ok(summary.reads.some(read => read.kind === 'file' && typeof read.tokens === 'number'));
+  // No show-context: progress line, and no live server URL.
+  assert.doesNotMatch(result.stdout, /show-context: /);
+  assert.doesNotMatch(result.stdout, /^http/);
 });
 
 test('session selection, errors, and deterministic output', async () => {
