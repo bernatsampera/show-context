@@ -18,6 +18,7 @@ Usage: show-context [session-id-or-prefix] [--no-open] [--static]
 Flags:
   --no-open       Do not open the report.
   --static        Write a static report without a live server.
+  --json          Print a JSON summary to stdout and exit (no page or server).
   -h, --help      Show this help.
   -v, --version   Show the version.
 
@@ -109,7 +110,7 @@ async function main() {
     process.stdout.write(`${packageJson.version}\n`);
     return;
   }
-  const flags = new Set(['--no-open', '--static']);
+  const flags = new Set(['--no-open', '--static', '--json']);
   const unknownFlag = args.find(argument => argument.startsWith('-') && !flags.has(argument));
   if (unknownFlag) throw new Error(`unknown flag: ${unknownFlag}. Use --help for help.`);
   const noOpen = args.includes('--no-open');
@@ -123,6 +124,17 @@ async function main() {
   try { source = await readFile(session.file, 'utf8'); }
   catch { throw new Error(`cannot read transcript: ${session.id}`); }
   const model = parseTranscript(source, { sessionId: session.id, home: os.homedir() });
+  if (args.includes('--json')) {
+    const summary = {
+      sessionId: model.sessionId,
+      startLoadTokens: model.startLoadTokens,
+      startLoad: model.startLoad.parts.map(part => ({ name: part.name, tokens: part.size })),
+      readTokens: model.totalReadTokens,
+      reads: model.reads.map(read => ({ kind: read.kind, name: read.name, tokens: read.size })),
+    };
+    process.stdout.write(`${JSON.stringify(summary)}\n`);
+    return;
+  }
   const html = renderShowContextPage(model);
   const output = path.resolve(
     process.env.SHOW_CONTEXT_OUT || path.join(os.homedir(), '.cache/show-context/show-context.html')
